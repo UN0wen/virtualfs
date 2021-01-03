@@ -10,8 +10,7 @@ import (
 // Represents the layer for the model by exposing the
 // different models' tables.
 type layer struct {
-	File      *FileTable
-	Directory *DirectoryTable
+	FileDirs *FileDirsTable
 }
 
 // Singleton reference to the model layer.
@@ -35,14 +34,11 @@ func LayerInstance() *layer {
 		})
 		utils.CheckError(err)
 		// Create all the tables
-		directoryTable, err := NewDirectoryTable(&db)
-		utils.CheckError(err)
-		fileTable, err := NewFileTable(&db)
+		fileDirsTable, err := NewFileDirsTable(&db)
 		utils.CheckError(err)
 		// Create the layer only once
 		instance = &layer{
-			Directory: &directoryTable,
-			File:      &fileTable,
+			FileDirs: &fileDirsTable,
 		}
 	})
 	return instance
