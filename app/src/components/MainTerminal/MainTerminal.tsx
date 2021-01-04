@@ -2,7 +2,6 @@ import {
   createStyles,
   IconButton,
   makeStyles,
-  Theme,
   Tooltip,
   Zoom,
 } from '@material-ui/core'
@@ -10,13 +9,14 @@ import { Help } from '@material-ui/icons'
 import React, { useState } from 'react'
 import Terminal from 'react-console-emulator'
 import { useHistory } from 'react-router-dom'
+import { cat } from './functions/cat'
 import { cd } from './functions/cd'
 import { cr } from './functions/cr'
 import { ls } from './functions/ls'
 import { mv } from './functions/mv'
 import { rm } from './functions/rm'
 
-const useStyles = makeStyles((theme: Theme) =>
+const useStyles = makeStyles(() =>
   createStyles({
     helpButton: {
       position: 'fixed',
@@ -35,17 +35,15 @@ export default function MainTerminal() {
   const [workDir, setWorkDir] = useState('/')
 
   const commands = {
-    echo: {
-      description: 'Echo a passed string.',
-      usage: 'echo <string>',
-      fn: function (...args) {
-        return `${Array.from(args).join(' ')}`
-      },
-    },
     cd: {
       description: 'Change current working directory.',
-      usage: 'cd <location>',
+      usage: 'cd DIR',
       fn: (...args) => cd(workDir, setWorkDir, ...args),
+    },
+    cat: {
+      description: 'Print the contents of a file to the command line.',
+      usage: 'cat FILE',
+      fn: (...args) => cat(workDir, ...args),
     },
     ls: {
       description:

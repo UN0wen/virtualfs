@@ -5,7 +5,7 @@ export async function cr(workDir: string, ...args) {
   if (args.length < 1) {
     return 'Usage: cr [-p] PATH [DATA]'
   }
-
+  const regex = RegExp(/^[a-zA-Z0-9 _-]+$/)
   let data = ''
   let parents = false
 
@@ -30,15 +30,24 @@ export async function cr(workDir: string, ...args) {
     data = args.join(' ')
   }
   const intendedPath = getPath(workDir, path)
+  const splitPath = intendedPath.split('/')
+  const name = splitPath[splitPath.length - 1]
+  if (!regex.test(name)) {
+    return 'Name must be valid'
+  }
 
   if (parents) {
     const parentPaths = getParentPaths(intendedPath)
     for (let i = 0; i < parentPaths.length; i++) {
       const parentPath = parentPaths[i]
-      const splitPath = parentPath.split('/')
+      const parentSplitPath = parentPath.split('/')
+      const parentName = parentSplitPath[parentSplitPath.length - 1]
+      if (!regex.test(parentName)) {
+        return 'Parent name must be valid'
+      }
       const parentPayload: CreatePathPayload = {
         filedirs: {
-          name: splitPath[splitPath.length - 1],
+          name: parentName,
           data: '',
           filetype: 'directory',
         },
@@ -48,10 +57,9 @@ export async function cr(workDir: string, ...args) {
     }
   }
 
-  const splitPath = intendedPath.split('/')
   const childPayload: CreatePathPayload = {
     filedirs: {
-      name: splitPath[splitPath.length - 1],
+      name: name,
       data: data,
       filetype: data ? 'file' : 'directory',
     },

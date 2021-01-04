@@ -15,9 +15,6 @@ CREATE TABLE IF NOT EXISTS filedirs (
 );
 
 CREATE INDEX path_gist_idx ON filedirs USING GIST (path);
-
-CREATE INDEX path_btree_idx ON filedirs USING btree (path);
-
 -------------------------------------------
 -------------------------------------------
 -- Triggers to manage sizes automatically--
