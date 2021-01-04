@@ -6,6 +6,8 @@ The React SPA is built with `yarn build` into static files, which are then copie
 
 The Go server serves both the static files of the SPA and the backend API at `/` and `/api/` respectively.
 
+The application is [hosted on Heroku](https://virtualfs.herokuapp.com).
+
 Decisions made as well as the general code structure for both backend and frontend are detailed below
 
 ## Backend
@@ -156,7 +158,20 @@ MOVE_DATA: {
 - Method: `DELETE`
 - Constraints: `path` must be encoded in Base64URL
 - Response: Single `DELETE_DATA`
-# To be added
+
+# Potential issues
+Security:
+- There is no authentication required to interact with the file system, so anyone can drop the entire file system by sending `DELETE`requests
+
+Concurrency:
+- Most SQL queries used are done in a single query, including those that update multiple nodes at the same time (`mv`), and `UPDATE`s queries are atomic.  
+- The biggest concurrency bottleneck on the server are the size calculation triggers that are called every time a new file is inserted/updated/deleted. 
+- In order to alleviate this bottleneck, we could lower the update frequency by running updates only when the data is accessed, handle the size updates ourselves in the application code, or remove it altogether and do dynamic size calculations upon request (which results in a lot more READs).
+
+Efficiency:
+- Since we are using a data structure built to represent paths that is indexable, queries are very efficient.
+- On the final hosted server, our performance bottleneck are the API calls between frontend and backend, as well as the bootup time of the Heroku dyno.
+# Future improvements
 
 - More unit tests
 - Fix and expose the `Update` function in backend (`PUT /api/`)
