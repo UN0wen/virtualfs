@@ -28,4 +28,7 @@ var DBHost = GetVar("DB_HOST", "localhost")
 var DBName = GetVar("DB_NAME", "virtualfs_test")
 
 // ServerPort is the port the server listens on
-var ServerPort = GetVar("SERVER_PORT", "8080")
+var ServerPort = GetVar("PORT", "8080")
+
+// DBUrl is the complete database url string used to connect
+var DBUrl = GetVar("DATABASE_URL", "")
