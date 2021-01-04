@@ -1,0 +1,64 @@
+- id: 1
+  name: /
+  size: 0
+  type: directory
+  path: root
+
+- id: 2
+  name: var
+  size: 0
+  type: directory
+  path: root.var
+
+- id: 3
+  name: lib
+  size: 0
+  type: directory
+  path: root.lib
+
+- id: 4
+  name: bin
+  size: 0
+  type: directory
+  path: root.bin
+
+- id: 5
+  name: mv
+  data: move func
+  size: 9
+  type: file
+  path: root.bin.mv
+
+- id: 6
+  name: ls
+  data: change dir
+  size: 10
+  type: file
+  path: root.bin.ls
+
+- id: 7
+  name: rootfile
+  data: this is at root
+  size: 15
+  type: file
+  path: root.file
+
+- id: 8
+  name: varfile
+  data: this is in var
+  size: 14
+  type: file
+  path: root.var.varfile
+
+- id: 9
+  name: lib
+  size: 0
+  type: directory
+  path: root.var.lib
+
+- id: 10
+  name: go
+  data: golang
+  size: 6
+  type: file
+  path: root.var.lib.go

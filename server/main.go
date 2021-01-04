@@ -28,24 +28,6 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 	}
 
-	item := models.FileDirs{}
-	item.Name = "test_file"
-	item.Type = "file"
-	item.Data = "poggers"
-
-	newItem, err := models.LayerInstance().FileDirs.GetPath("/test")
-	utils.CheckError(err)
-	utils.Sugar.Infof("%v", newItem)
-
-	newItem2, err := models.LayerInstance().FileDirs.GetAllPath("/", 2)
-	utils.CheckError(err)
-	for _, i := range newItem2 {
-		utils.Sugar.Infof("%v", *i)
-	}
-
-	err = models.LayerInstance().FileDirs.Insert(&item, "/test")
-	utils.CheckError(err)
-
 	utils.Sugar.Infof("Started server on port %s", utils.ServerPort)
 	utils.Sugar.Fatal(server.ListenAndServe())
 }

@@ -1,11 +1,22 @@
 package router
 
 import (
+	"github.com/UN0wen/virtualfs/server/api/controllers"
 	"github.com/go-chi/chi"
 	chimiddleware "github.com/go-chi/chi/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/render"
 )
+
+func createRoutes(r *chi.Mux) {
+	r.Route("/api", func(r chi.Router) {
+		r.Get("/{path}", controllers.GetPath) // Get /
+		r.Post("/", controllers.CreatePath)
+		// r.Put("/", controllers.UpdateItem) // This doesn't work properly yet, but it's not in the spec
+		r.Put("/path", controllers.UpdatePath)
+		r.Delete("/{path}", controllers.DeletePath)
+	})
+}
 
 // NewRouter creates a chi Router with all routes and middleware configured
 func NewRouter() *chi.Mux {
@@ -26,6 +37,8 @@ func NewRouter() *chi.Mux {
 		AllowCredentials: false,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
+
+	createRoutes(router)
 
 	spa := spaHandler{staticPath: "build", indexPath: "index.html"}
 	router.Handle("/*", spa)

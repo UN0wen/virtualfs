@@ -26,9 +26,8 @@ var (
 		"updated": true,
 	}
 	SkipParam = map[string]bool{
-		"created":     true,
-		"id":          true,
-		"parentdirid": true,
+		"created": true,
+		"id":      true,
 	}
 )
 
@@ -50,15 +49,14 @@ type FileDirsTable struct {
 
 // FileDirs represents a single row in the FileTable
 type FileDirs struct {
-	ID          int64     `valid:"-" json:"id"`
-	Parentdirid int64     `valid:"-" json:"parentdirid"`
-	Name        string    `valid:"required" json:"name"`
-	Data        string    `valid:"-" json:"data"`
-	Created     time.Time `valid:"-" json:"created"`
-	Updated     time.Time `valid:"-" json:"updated"`
-	Size        int64     `valid:"-" json:"size"`
-	Type        string    `valid:"required" json:"filetype"`
-	Path        string    `valid:"-" json:"path"`
+	ID      int64     `valid:"-" json:"id"`
+	Name    string    `valid:"required" json:"name"`
+	Data    string    `valid:"-" json:"data"`
+	Created time.Time `valid:"-" json:"created"`
+	Updated time.Time `valid:"-" json:"updated"`
+	Size    int64     `valid:"-" json:"size"`
+	Type    string    `valid:"-" json:"filetype"`
+	Path    string    `valid:"-" json:"path"`
 }
 
 // NewFileDirsTable creates a new table in the database for files and directories.
@@ -75,7 +73,6 @@ func NewFileDirsTable(db *db.Db) (fileDirsTable FileDirsTable, err error) {
 	query := fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		id serial PRIMARY KEY,
-		parentdirid int REFERENCES %s (id),
 		name text NOT NULL,
 		data text,
 		created timestamptz NOT NULL DEFAULT now(),
@@ -83,7 +80,7 @@ func NewFileDirsTable(db *db.Db) (fileDirsTable FileDirsTable, err error) {
 		size int DEFAULT 0,
 		TYPE filetype NOT NULL,
 		path ltree
-	);`, FileDirsTableName, FileDirsTableName)
+	);`, FileDirsTableName)
 	// Create the actual table
 	if err = fileDirsTable.connection.CreateTable(query); err != nil {
 		err = errors.Wrapf(err, "Could not initialize table %s", FileDirsTableName)
@@ -141,7 +138,8 @@ func (table *FileDirsTable) GetAllPath(path string, levels int) (items []*FileDi
 }
 
 // Insert inserts either a file or a directory into the fs
-func (table *FileDirsTable) Insert(newItem *FileDirs, path string) (err error) {
+func (table *FileDirsTable) Insert(newItem *FileDirs, path string) (insertedItem *FileDirs, err error) {
+	var results []*FileDirs
 	_, err = govalidator.ValidateStruct(newItem)
 	if err != nil {
 		err = errors.Wrapf(err, "Missing required fields")
@@ -155,8 +153,8 @@ func (table *FileDirsTable) Insert(newItem *FileDirs, path string) (err error) {
 	}
 
 	// Set parent dir id and newItem's path
-	newItem.Parentdirid = item.ID
 	newItem.Path = item.Path + "." + newItem.Name
+
 	// Set item size
 	if newItem.Data != "" {
 		newItem.Size = int64(len(newItem.Data))
@@ -215,17 +213,23 @@ func (table *FileDirsTable) Insert(newItem *FileDirs, path string) (err error) {
 		vIdx++
 	}
 	var query bytes.Buffer
-	query.WriteString(fmt.Sprintf(`INSERT INTO "%s" (%s) VALUES (%s);`, FileDirsTableName, kStr.String(), vStr.String()))
+	query.WriteString(fmt.Sprintf(`INSERT INTO "%s" (%s) VALUES (%s) RETURNING *;`, FileDirsTableName, kStr.String(), vStr.String()))
 
 	utils.Sugar.Infof("SQL Query: %s", query.String())
 	utils.Sugar.Infof("Values: %v", values)
 
-	_, err = table.connection.Pool.Exec(context.Background(), query.String(), values...)
+	err = pgxscan.Select(context.Background(), table.connection.Pool, &results, query.String(), values...)
 	if err != nil {
 		err = errors.Wrapf(err, "Insertion query failed to execute")
 		return
 	}
 
+	if len(results) == 0 {
+		err = errors.New(fmt.Sprintf("item at path %s not inserted", path))
+		return
+	}
+
+	insertedItem = results[0]
 	return
 }
 
@@ -237,14 +241,27 @@ func (table *FileDirsTable) Update(updates *FileDirs, path string) (updatedItem 
 
 	_, err = table.GetPath(path)
 	if err != nil {
+		err = errors.Wrapf(err, "Update error, file does not exist")
 		return
 	}
 
 	ltree, err := utils.PathToLtree(path)
 	if err != nil {
-		err = errors.Wrapf(err, "Could not convert path during Update")
+		err = errors.Wrapf(err, "Could not convert path for Update")
 		return
 	}
+
+	// Set item size
+	if updates.Data != "" {
+		updates.Size = int64(len(updates.Data))
+		updates.Type = "file"
+	} else {
+		updates.Size = 0
+		updates.Type = "directory"
+	}
+	// Set time
+	currentTime := time.Now()
+	updates.Updated = currentTime
 
 	var query bytes.Buffer
 	query.WriteString(fmt.Sprintf("UPDATE %s SET", FileDirsTableName))
@@ -292,6 +309,106 @@ func (table *FileDirsTable) Update(updates *FileDirs, path string) (updatedItem 
 		return
 	}
 
+	if len(result) == 0 {
+		err = errors.New(fmt.Sprintf("item at path %s not updated", path))
+		return
+	}
+
 	updatedItem = result[0]
+	return
+}
+
+// UpdatePath moves the file at source path to be under destination
+// folder
+func (table *FileDirsTable) UpdatePath(sourcePath, destPath string) (updatedItems []*FileDirs, err error) {
+	if sourcePath == destPath {
+		err = errors.New("Can't put a folder under itself")
+		return
+	}
+
+	ltreeSource, err := utils.PathToLtree(sourcePath)
+	if err != nil {
+		err = errors.Wrapf(err, "Could not convert source path for UpdatePath")
+		return
+	}
+
+	sourceItem, err := table.GetPath(sourcePath)
+	if err != nil {
+		err = errors.Wrapf(err, "UpdatePath error, source path does not exist")
+		return
+	}
+
+	// check for parent dir
+	_, err = table.GetPath(destPath)
+	if err != nil {
+		err = errors.Wrapf(err, "UpdatePath error, parent path of destination does not exist")
+		return
+	}
+
+	// Example: destPath = "/var", item = "ex_file", file to check = "/var/ex_file"
+	destItemPath := destPath + "/" + sourceItem.Name
+
+	destItem, err := table.GetPath(destItemPath)
+	if err == nil { // Dest path exists
+		switch {
+		case destItem.Type == "directory":
+			destPath = destItemPath //  put file under dir
+		case destItem.Type == "file" && sourceItem.Type == "file":
+			ltree, _ := utils.LtreeToPath(destItem.Path)
+			table.DeletePath(ltree) // delete dest item and replace it with current item
+		default:
+			err = errors.New("Cannot replace file with directory")
+			return
+		}
+	}
+
+	err = nil
+	// Changing destpath now
+	ltreeDest, err := utils.PathToLtree(destPath)
+	if err != nil {
+		err = errors.Wrapf(err, "Could not convert dest path for UpdatePath")
+		return
+	}
+
+	// Set time
+	currentTime := time.Now().Format(time.RFC3339)
+	values := []string{ltreeDest, currentTime, ltreeSource}
+	// Moving the entire branch to the new folder
+	query := `UPDATE filedirs SET size= (CASE WHEN type='directory' THEN 0 ELSE size END),
+	updated=$1, path=$2 || subpath(path, nlevel($3)-1) where path <@ $3 RETURNING *;`
+
+	utils.Sugar.Infof("SQL Query: %s", query)
+	utils.Sugar.Infof("Values: %v", values)
+	err = pgxscan.Select(context.Background(), table.connection.Pool, &updatedItems, query, currentTime, ltreeDest, ltreeSource)
+	if err != nil {
+		err = errors.Wrapf(err, "GetPath query failed to execute")
+		return
+	}
+
+	if len(updatedItems) == 0 {
+		err = errors.New(fmt.Sprintf("UpdatePath did not update any values"))
+		return
+	}
+	return
+}
+
+// DeletePath deletes a file/dir and everything under it
+func (table *FileDirsTable) DeletePath(path string) (err error) {
+	ltree, err := utils.PathToLtree(path)
+	if err != nil {
+		err = errors.Wrapf(err, "Could not convert path for Update")
+		return
+	}
+
+	query := fmt.Sprintf("DELETE FROM %s WHERE path<@'%s';", FileDirsTableName, ltree)
+
+	utils.Sugar.Infof("SQL Query: %s", query)
+
+	_, err = table.connection.Pool.Exec(context.Background(), query)
+	if err != nil {
+		err = errors.Wrapf(err, "DeletePath query failed to execute for path %s", path)
+		return
+	}
+
 	return
 }

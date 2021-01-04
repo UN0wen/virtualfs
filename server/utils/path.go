@@ -1,11 +1,17 @@
 package utils
 
 import (
+	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
 )
+
+// IsAbsolute checks if the provided path is absolute
+func IsAbsolute(path string) (abs bool) {
+	return strings.HasPrefix(path, "/")
+}
 
 // CleanPath gives us a clean path from a potentially relative path
 func CleanPath(path string, currentWorkDir string) (absolutePath string, err error) {
@@ -55,4 +61,10 @@ func LtreeToPath(ltree string) (path string, err error) {
 
 	path = strings.ReplaceAll(noRoot, ".", "/")
 	return
+}
+
+// GetParentPath expects an absolute path with no / at the end
+// and return the parent path of that path
+func GetParentPath(inPath string) string {
+	return path.Dir(inPath)
 }

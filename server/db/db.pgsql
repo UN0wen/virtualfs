@@ -1,14 +1,10 @@
-DROP TABLE IF EXISTS closure;
 
 DROP TABLE IF EXISTS filedirs;
-
-DROP TYPE IF EXISTS filetype;
 
 CREATE EXTENSION IF NOT EXISTS ltree;
 
 CREATE TABLE IF NOT EXISTS filedirs (
     id serial PRIMARY KEY,
-    parentdirid int REFERENCES filedirs (id),
     name text NOT NULL,
     data text NOT NULL DEFAULT '',
     created timestamptz NOT NULL DEFAULT now(),
@@ -35,7 +31,8 @@ BEGIN
         UPDATE
             filedirs AS f
         SET
-            size = f2.size + NEW.size
+            size = f2.size + NEW.size,
+            updated = now()
         FROM (
             SELECT
                 path,
@@ -65,23 +62,65 @@ CREATE OR REPLACE FUNCTION update_size ()
     AS $$
 BEGIN
     IF NEW.type = 'file' THEN
-        UPDATE
-            filedirs AS f
-        SET
-            size = f2.size + (NEW.size - OLD.size)
-        FROM (
-            SELECT
-                path,
-                size
-            FROM
-                filedirs
-            WHERE
-                path @> NEW.path
-                AND TYPE = 'directory') AS f2 (path,
-            size)
-    WHERE
-        f2.path = f.path
-            AND f.type = 'directory';
+        IF NEW.path = OLD.path THEN
+            UPDATE
+                filedirs AS f
+            SET
+                size = f2.size + (NEW.size - OLD.size),
+                updated = now()
+            FROM (
+                SELECT
+                    path,
+                    size
+                FROM
+                    filedirs
+                WHERE
+                    path @> NEW.path
+                    AND TYPE = 'directory') AS f2 (path,
+                size)
+        WHERE
+            f2.path = f.path
+                AND f.type = 'directory';
+        ELSE
+            -- Delete from old
+            UPDATE
+                filedirs AS f
+            SET
+                size = f2.size - OLD.size,
+                updated = now()
+            FROM (
+                SELECT
+                    path,
+                    size
+                FROM
+                    filedirs
+                WHERE
+                    path @> OLD.path
+                    AND TYPE = 'directory') AS f2 (path,
+                size)
+        WHERE
+            f2.path = f.path
+                AND f.type = 'directory';
+            -- Add to new
+            UPDATE
+                filedirs AS f
+            SET
+                size = f2.size + NEW.size,
+                updated = now()
+            FROM (
+                SELECT
+                    path,
+                    size
+                FROM
+                    filedirs
+                WHERE
+                    path @> NEW.path
+                    AND TYPE = 'directory') AS f2 (path,
+                size)
+        WHERE
+            f2.path = f.path
+                AND f.type = 'directory';
+        END IF;
     END IF;
     RETURN NEW;
 END;
@@ -101,7 +140,8 @@ BEGIN
         UPDATE
             filedirs AS f
         SET
-            size = f2.size - OLD.size
+            size = f2.size - OLD.size,
+            updated = now()
         FROM (
             SELECT
                 path,
@@ -131,29 +171,6 @@ CREATE TRIGGER delete_size
 -- End triggers --
 ------------------
 ------------------
-
-
 -- Root dir
-INSERT INTO filedirs (id, parentdirid, name, TYPE, path)
-    VALUES (DEFAULT, lastval(), '/', 'directory', 'root');
-
--- Test values
-INSERT INTO filedirs (id, parentdirid, name, TYPE, path)
-    VALUES (DEFAULT, 1, 'test', 'directory', 'root.test');
-
-INSERT INTO filedirs (id, parentdirid, name, TYPE, path)
-    VALUES (DEFAULT, 2, 'test2', 'directory', 'root.test.test2');
-
-INSERT INTO filedirs (id, parentdirid, name, TYPE, path, size)
-    VALUES (DEFAULT, 1, 'file1', 'file', 'root.file1', 5);
-
-INSERT INTO filedirs (id, parentdirid, name, TYPE, path, size)
-    VALUES (DEFAULT, 1, 'file2', 'file', 'root.file2', 10);
-
-INSERT INTO filedirs (id, parentdirid, name, TYPE, path, size)
-    VALUES (DEFAULT, 2, 'file3', 'file', 'root.test.file3', 3);
-
-INSERT INTO filedirs (id, parentdirid, name, TYPE, path, size)
-    VALUES (DEFAULT, 3, 'file4', 'file', 'root.test.test2.file4', 8);
-
-
+INSERT INTO filedirs (id, name, TYPE, path)
+    VALUES (DEFAULT, '/', 'directory', 'root');
