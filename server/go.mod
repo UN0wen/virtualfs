@@ -1,5 +1,5 @@
+// +heroku goVersion go1.15
 module github.com/UN0wen/virtualfs/server
-
 go 1.15
 
 require (
