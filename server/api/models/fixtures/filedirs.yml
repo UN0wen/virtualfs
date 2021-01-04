@@ -41,7 +41,7 @@
   data: this is at root
   size: 15
   type: file
-  path: root.file
+  path: root.rootfile
 
 - id: 8
   name: varfile

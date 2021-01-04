@@ -48,6 +48,25 @@ func (mr *MoveRequest) Bind(r *http.Request) error {
 	return nil
 }
 
+// DeleteResponse is the response payload for delete commands
+// returning the number of rows deleted
+type DeleteResponse struct {
+	NumRows int64 `json:"numrows"`
+}
+
+// NewDeleteResponse generate a Response for DeleteResponse
+func NewDeleteResponse(num int64) *DeleteResponse {
+	resp := &DeleteResponse{NumRows: num}
+
+	return resp
+}
+
+// Render is preprocessing before the response is marshalled
+func (rd *DeleteResponse) Render(w http.ResponseWriter, r *http.Request) error {
+	// Pre-processing before a response is marshalled and sent across the wire
+	return nil
+}
+
 // FileDirsResponse is the response payload for the FileDirs data model.
 type FileDirsResponse struct {
 	FileDirs *models.FileDirs `json:"filedirs"`

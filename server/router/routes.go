@@ -10,10 +10,11 @@ import (
 
 func createRoutes(r *chi.Mux) {
 	r.Route("/api", func(r chi.Router) {
-		r.Get("/{path}", controllers.GetPath) // Get /
+		r.Get("/{path}", controllers.GetPath)            // Get /
+		r.Get("/{path}/exact", controllers.GetExactPath) // Get /
 		r.Post("/", controllers.CreatePath)
 		// r.Put("/", controllers.UpdateItem) // This doesn't work properly yet, but it's not in the spec
-		r.Put("/path", controllers.UpdatePath)
+		r.Put("/", controllers.UpdatePath)
 		r.Delete("/{path}", controllers.DeletePath)
 	})
 }

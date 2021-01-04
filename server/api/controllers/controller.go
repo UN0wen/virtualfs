@@ -18,7 +18,6 @@ import (
 // It accepts two optional queries
 // path: string is the source path
 // level: int is the number of levels deep to get
-// It returns the root dir by default
 func GetPath(w http.ResponseWriter, r *http.Request) {
 	var path string
 	var level int
@@ -54,6 +53,42 @@ func GetPath(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := render.RenderList(w, r, payloads.NewFileDirsListResponse(fileDirs)); err != nil {
+		render.Render(w, r, payloads.ErrRender(err))
+		return
+	}
+}
+
+// GetExactPath returns a single file at a path.
+// It uses a URLParam of path encoded in base64
+func GetExactPath(w http.ResponseWriter, r *http.Request) {
+	var path string
+	path = chi.URLParam(r, "path")
+
+	parsedPath, err := base64.URLEncoding.DecodeString(path)
+
+	if err != nil {
+		render.Render(w, r, payloads.ErrInvalidRequest(errors.New("Path is not correctly encoded")))
+		return
+	}
+
+	parsedPathString := string(parsedPath)
+	// Make sure that path is absolute
+	if parsedPathString != "" {
+		if !utils.IsAbsolute(parsedPathString) {
+			render.Render(w, r, payloads.ErrInvalidRequest(errors.New("Provided paths must be absolute")))
+		}
+	} else {
+		parsedPathString = "/"
+	}
+
+	fileDir, err := models.LayerInstance().FileDirs.GetPath(parsedPathString)
+
+	if err != nil {
+		render.Render(w, r, payloads.ErrInternalError(err))
+		return
+	}
+
+	if err := render.Render(w, r, payloads.NewFileDirsResponse(fileDir)); err != nil {
 		render.Render(w, r, payloads.ErrRender(err))
 		return
 	}
@@ -141,12 +176,14 @@ func DeletePath(w http.ResponseWriter, r *http.Request) {
 	}
 	parsedPathString := string(parsedPath)
 
-	err = models.LayerInstance().FileDirs.DeletePath(parsedPathString)
+	numRows, err := models.LayerInstance().FileDirs.DeletePath(parsedPathString)
 	if err != nil {
 		render.Render(w, r, payloads.ErrInternalError(err))
 		return
 	}
 
-	render.Status(r, http.StatusOK)
-	return
+	if err := render.Render(w, r, payloads.NewDeleteResponse(numRows)); err != nil {
+		render.Render(w, r, payloads.ErrRender(err))
+		return
+	}
 }

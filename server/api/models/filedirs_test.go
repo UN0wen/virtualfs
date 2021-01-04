@@ -110,7 +110,7 @@ func TestUpdatePath(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	// /var -> /lib/var
-	err := LayerInstance().FileDirs.DeletePath("/var")
+	_, err := LayerInstance().FileDirs.DeletePath("/lib")
 	if err != nil {
 		t.Fatal(err)
 	}

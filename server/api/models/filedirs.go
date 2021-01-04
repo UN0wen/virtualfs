@@ -78,7 +78,7 @@ func NewFileDirsTable(db *db.Db) (fileDirsTable FileDirsTable, err error) {
 		created timestamptz NOT NULL DEFAULT now(),
 		updated timestamptz NOT NULL DEFAULT now(),
 		size int DEFAULT 0,
-		TYPE filetype NOT NULL,
+		TYPE text NOT NULL,
 		path ltree
 	);`, FileDirsTableName)
 	// Create the actual table
@@ -124,7 +124,7 @@ func (table *FileDirsTable) GetAllPath(path string, levels int) (items []*FileDi
 		return
 	}
 
-	query := fmt.Sprintf("SELECT * FROM %s WHERE path~'%s.*{1,%d}';", FileDirsTableName, ltree, levels)
+	query := fmt.Sprintf("SELECT * FROM %s WHERE path~'%s.*{1,%d}' ORDER BY path;", FileDirsTableName, ltree, levels)
 
 	utils.Sugar.Infof("SQL Query: %s", query)
 
@@ -393,7 +393,7 @@ func (table *FileDirsTable) UpdatePath(sourcePath, destPath string) (updatedItem
 }
 
 // DeletePath deletes a file/dir and everything under it
-func (table *FileDirsTable) DeletePath(path string) (err error) {
+func (table *FileDirsTable) DeletePath(path string) (rows int64, err error) {
 	ltree, err := utils.PathToLtree(path)
 	if err != nil {
 		err = errors.Wrapf(err, "Could not convert path for Update")
@@ -404,11 +404,11 @@ func (table *FileDirsTable) DeletePath(path string) (err error) {
 
 	utils.Sugar.Infof("SQL Query: %s", query)
 
-	_, err = table.connection.Pool.Exec(context.Background(), query)
+	cTag, err := table.connection.Pool.Exec(context.Background(), query)
 	if err != nil {
 		err = errors.Wrapf(err, "DeletePath query failed to execute for path %s", path)
 		return
 	}
-
+	rows = cTag.RowsAffected()
 	return
 }
